@@ -14,29 +14,43 @@ const StarButton = props => {
         onClick={
           () => {
             addOrRemoveStar({
-              variables: { input: { starrableId: node.id } }
-            })
+              variables: { input: { starrableId: node.id } },
+              update: (store, {data: { addStar, removeStar }}) => {
+                const { starrable } = addStar || removeStar;
+                console.log(starrable);
+                const data = store.readQuery(
+                  {
+                    query: SEARCH_REPOSITORIES,
+                    variables: { query, first, last, before, after }
+                  }
+                );
+                const edges = data.search.edges;
+                const newEdges = edges.map(edge => {
+                  if (edge.node.id === node.id) {
+                    const totalCount = edge.node.stargazers.totalCount;
+                    //const diff = viewerHasStarred ? -1 : 1;
+                    const diff = starrable.viewerHasStarred ? 1 : -1;
+                    const newTotalCount = totalCount + diff;
+                    edge.node.stargazers.totalCount = newTotalCount;
+                  }
+                  return edge;
+                });
+                data.search.edges = newEdges;
+                store.writeQuery({ query: SEARCH_REPOSITORIES, data });
+              }
+            });
           }
         }
       >
         {starCount} | {viewerHasStarred ? 'starred' : '-'}
       </button>
-    )
+    );
   }
 
    return (
      <Mutation
        mutation={viewerHasStarred ? REMOVE_STAR : ADD_STAR}
-       refetchQueries={ mutationResult => {
-         console.log(mutationResult);
-         return [
-           {
-             query: SEARCH_REPOSITORIES,
-             variables: { query, first, last, before, after }
-           }
-         ]
-       }
-       }
+       
      >
        {
          addOrRemoveStar => <StarStatas addOrRemoveStar={addOrRemoveStar}/>
@@ -66,7 +80,7 @@ class App extends Component {
     this.setState({
       ...DEFAULT_STATE,
       query: event.target.value
-    })
+    });
   }
 
   goPrevious(search) {
@@ -75,7 +89,7 @@ class App extends Component {
       after: null,
       last: PER_PAGE,
       before: search.pageInfo.startCursor
-    })
+    });
   }
 
   goNext(search) {
@@ -84,7 +98,7 @@ class App extends Component {
       after: search.pageInfo.endCursor,
       last: null,
       before: null
-    })
+    });
   }
 
   render() {
